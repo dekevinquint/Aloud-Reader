@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aloud — read your PDFs out loud</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --ink:#14201e; --ink-2:#1c2b28; --ink-line:#2c3d39;
+    --paper:#f6f1e7; --paper-edge:#eae2d2;
+    --text:#2a2723; --text-soft:#6d675c;
+    --gold:#e0a63c; --gold-deep:#c98d24; --gold-wash:rgba(224,166,60,0.20);
+    --on-dark:#e8efec; --on-dark-soft:#93a8a2;
+    --radius:14px; --dock-h:88px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--ink);color:var(--on-dark);font-family:"Inter",system-ui,-apple-system,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,[tabindex]:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--ink-line);background:linear-gradient(var(--ink-2),var(--ink));flex:0 0 auto}
+  .mark{width:34px;height:34px;border-radius:9px;flex:0 0 auto;background:radial-gradient(circle at 32% 30%,#f4c56a,var(--gold) 55%,var(--gold-deep));position:relative;box-shadow:0 0 22px -6px var(--gold)}
+  .mark::before,.mark::after{content:"";position:absolute;border:2px solid rgba(20,32,30,.55);border-radius:50%;top:50%;left:60%;transform:translateY(-50%)}
+  .mark::before{width:9px;height:9px}
+  .mark::after{width:17px;height:17px;opacity:.6}
+  .brand h1{font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1}
+  .brand p{font-size:12px;color:var(--on-dark-soft);margin-top:3px}
+  .top-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .ghost-btn{font-size:13px;font-weight:500;color:var(--on-dark-soft);padding:8px 12px;border-radius:9px;border:1px solid var(--ink-line);transition:.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+  .ghost-btn:hover{color:var(--on-dark);border-color:var(--gold);background:rgba(224,166,60,.06)}
+  .ghost-btn[hidden]{display:none}
+  .ghost-btn svg{width:15px;height:15px;fill:currentColor}
+
+  main{flex:1 1 auto;position:relative;overflow:hidden;display:flex}
+
+  .welcome{margin:auto;width:min(560px,90%);text-align:center;padding:40px 20px}
+  .drop{border:1.5px dashed var(--ink-line);border-radius:22px;padding:52px 32px;transition:.2s;background:rgba(255,255,255,.015)}
+  .drop.hot{border-color:var(--gold);background:var(--gold-wash);transform:scale(1.01)}
+  .drop .big{font-family:"Newsreader",Georgia,serif;font-size:30px;line-height:1.2;color:var(--on-dark);margin-bottom:12px;font-weight:500;letter-spacing:-.01em}
+  .drop .sub{color:var(--on-dark-soft);font-size:14.5px;line-height:1.6;max-width:42ch;margin:0 auto 26px}
+  .cta{display:inline-flex;align-items:center;gap:9px;background:var(--gold);color:#241a06;font-weight:600;font-size:14.5px;padding:13px 22px;border-radius:11px;transition:.15s;box-shadow:0 8px 24px -10px var(--gold)}
+  .cta:hover{background:#f0b551;transform:translateY(-1px)}
+  .welcome .fineprint{margin-top:22px;font-size:12px;color:var(--on-dark-soft);line-height:1.6}
+
+  .reader-wrap{flex:1 1 auto;display:flex;justify-content:center;overflow-y:auto;padding:26px 24px calc(var(--dock-h) + 34px);scroll-behavior:smooth}
+  .reader-wrap[hidden]{display:none}
+  .col{width:min(680px,100%);display:flex;flex-direction:column;gap:16px}
+
+  .banner{display:flex;align-items:center;gap:14px;background:var(--ink-2);border:1px solid var(--ink-line);border-left:3px solid var(--gold);border-radius:12px;padding:14px 16px}
+  .banner[hidden]{display:none}
+  .banner .b-text{flex:1 1 auto;font-size:13.5px;line-height:1.5;color:var(--on-dark-soft)}
+  .banner .b-text b{color:var(--on-dark);font-weight:600}
+  .banner .b-btn{flex:0 0 auto;background:var(--gold);color:#241a06;font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;white-space:nowrap}
+  .banner .b-btn:hover{background:#f0b551}
+
+  .page{background:var(--paper);color:var(--text);border-radius:var(--radius);padding:52px 54px 60px;box-shadow:0 30px 60px -30px rgba(0,0,0,.6),0 2px 0 var(--paper-edge);font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.72;letter-spacing:.003em}
+  .doc-title{font-size:13px;font-family:"Inter",sans-serif;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin-bottom:26px;padding-bottom:16px;border-bottom:1px solid var(--paper-edge);display:flex;justify-content:space-between;gap:12px}
+  .sentence{border-radius:5px;padding:1px 2px;margin:-1px -2px;transition:background-color .25s ease,color .25s ease;cursor:pointer}
+  .sentence:hover{background:rgba(224,166,60,.13)}
+  .sentence.para::before{content:"";display:block;height:1.15em}
+  .sentence.active{background:var(--gold-wash);box-shadow:-10px 0 0 var(--gold-wash),inset 3px 0 0 -1px var(--gold);color:#1c1a15}
+
+  .loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(20,32,30,.86);backdrop-filter:blur(3px);z-index:15;padding:20px;text-align:center}
+  .loading[hidden]{display:none}
+  .spinner{width:38px;height:38px;border-radius:50%;border:3px solid var(--ink-line);border-top-color:var(--gold);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading p{color:var(--on-dark-soft);font-size:14px;max-width:38ch;line-height:1.5}
+  .loading .bar{width:min(260px,80%);height:6px;border-radius:99px;background:var(--ink-line);overflow:hidden}
+  .loading .bar[hidden]{display:none}
+  .loading .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold-deep),var(--gold));transition:width .2s}
+  .loading .cancel{margin-top:4px;font-size:12.5px;color:var(--on-dark-soft);text-decoration:underline;text-underline-offset:3px}
+  .loading .cancel[hidden]{display:none}
+
+  .dock{position:absolute;left:0;right:0;bottom:0;height:var(--dock-h);background:linear-gradient(var(--ink-2),#111b19);border-top:1px solid var(--ink-line);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:10}
+  .dock[hidden]{display:none}
+  .transport{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .tbtn{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;color:var(--on-dark);transition:.15s}
+  .tbtn:hover{background:rgba(255,255,255,.06);color:#fff}
+  .tbtn:disabled{opacity:.3;cursor:default;background:none}
+  .tbtn svg{width:20px;height:20px;fill:currentColor}
+  .play-main{width:56px;height:56px;border-radius:50%;background:var(--gold);color:#241a06;box-shadow:0 6px 20px -6px var(--gold)}
+  .play-main:hover{background:#f0b551}
+  .play-main:disabled{background:var(--ink-line);color:var(--on-dark-soft);box-shadow:none;opacity:1}
+  .play-main svg{width:24px;height:24px}
+
+  .progress-area{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:7px}
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--on-dark-soft);gap:12px}
+  .progress-top .now{color:var(--on-dark);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track{height:6px;border-radius:99px;background:var(--ink-line);position:relative;cursor:pointer}
+  .fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:99px;background:linear-gradient(90deg,var(--gold-deep),var(--gold));transition:width .2s}
+
+  .settings{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+  .ctrl{display:flex;align-items:center;gap:8px}
+  .ctrl label{font-size:11px;color:var(--on-dark-soft);text-transform:uppercase;letter-spacing:.06em}
+  select{background:var(--ink);color:var(--on-dark);border:1px solid var(--ink-line);border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit;max-width:170px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:92px;height:5px;border-radius:99px;background:var(--ink-line);cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gold);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-radius:50%;background:var(--gold);cursor:pointer}
+  .rate-val{font-size:12.5px;color:var(--on-dark);width:34px;font-variant-numeric:tabular-nums}
+
+  .toast{position:absolute;bottom:calc(var(--dock-h) + 18px);left:50%;transform:translateX(-50%) translateY(10px);background:#241a06;color:#f7e6c4;padding:11px 18px;border-radius:10px;font-size:13.5px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:90%;text-align:center;border:1px solid var(--gold-deep)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* settings panel */
+  .scrim{position:absolute;inset:0;background:rgba(8,14,13,.5);opacity:0;pointer-events:none;transition:.2s;z-index:19}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .panel{position:absolute;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--ink-2);border-left:1px solid var(--ink-line);transform:translateX(100%);transition:transform .25s ease;z-index:20;display:flex;flex-direction:column;box-shadow:-30px 0 60px -30px rgba(0,0,0,.7)}
+  .panel.open{transform:translateX(0)}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--ink-line)}
+  .panel-head h2{font-size:16px;font-weight:600}
+  .panel-close{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--on-dark-soft)}
+  .panel-close:hover{background:rgba(255,255,255,.06);color:var(--on-dark)}
+  .panel-body{overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:24px}
+  .grp{display:flex;flex-direction:column;gap:12px}
+  .grp>.grp-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--on-dark-soft);font-weight:600}
+  .seg{display:flex;background:var(--ink);border:1px solid var(--ink-line);border-radius:10px;padding:4px;gap:4px}
+  .seg button{flex:1;padding:9px 6px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--on-dark-soft);transition:.15s}
+  .seg button.on{background:var(--gold);color:#241a06}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12.5px;color:var(--on-dark)}
+  .field input[type=text],.field input[type=password],.field select{width:100%;max-width:none;background:var(--ink);color:var(--on-dark);border:1px solid var(--ink-line);border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit}
+  .field .hint{font-size:11.5px;color:var(--on-dark-soft);line-height:1.5}
+  .field .hint a{color:var(--gold-deep)}
+  .rowbtn{display:flex;gap:8px}
+  .mini-btn{background:var(--ink);border:1px solid var(--ink-line);color:var(--on-dark);border-radius:9px;padding:9px 12px;font-size:12.5px;font-weight:500;transition:.15s;white-space:nowrap}
+  .mini-btn:hover{border-color:var(--gold);color:#fff}
+  .mini-btn:disabled{opacity:.4;cursor:default}
+  .dl-btn{width:100%;background:var(--gold);color:#241a06;font-weight:600;font-size:13.5px;padding:12px;border-radius:10px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .dl-btn:hover{background:#f0b551}
+  .dl-btn:disabled{background:var(--ink);color:var(--on-dark-soft);cursor:default;border:1px solid var(--ink-line)}
+  .dl-btn svg{width:16px;height:16px;fill:currentColor}
+  .note{font-size:11.5px;color:var(--on-dark-soft);line-height:1.55;background:var(--ink);border:1px solid var(--ink-line);border-radius:9px;padding:10px 12px}
+  [hidden]{display:none !important}
+
+  @media (max-width:860px){
+    .settings .voice-ctrl label{display:none}
+    select{max-width:120px}
+    .page{padding:38px 28px 46px;font-size:18px}
+  }
+  @media (max-width:640px){
+    :root{--dock-h:auto}
+    .dock{flex-wrap:wrap;gap:12px;padding:12px 14px}
+    .progress-area{order:-1;flex-basis:100%}
+    .transport{flex:1 1 auto;justify-content:center}
+    .reader-wrap{padding-bottom:190px}
+    .brand p{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto !important;transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+  <header>
+    <div class="mark" aria-hidden="true"></div>
+    <div class="brand"><h1>Aloud</h1><p>Your PDFs, read out loud</p></div>
+    <div class="top-actions">
+      <button class="ghost-btn" id="changeBtn" hidden>
+        <svg viewBox="0 0 24 24"><path d="M12 4a1 1 0 0 1 1 1v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5a1 1 0 0 1 1-1Z"/></svg>
+        Open another PDF
+      </button>
+      <button class="ghost-btn" id="settingsBtn" hidden>
+        <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/><path d="M10.6 2.4a1 1 0 0 1 .98-.8h.84a1 1 0 0 1 .98.8l.3 1.5a7.9 7.9 0 0 1 1.6.93l1.44-.5a1 1 0 0 1 1.2.46l.42.72a1 1 0 0 1-.22 1.27l-1.15.98c.06.3.09.61.09.93s-.03.63-.09.93l1.15.98a1 1 0 0 1 .22 1.27l-.42.72a1 1 0 0 1-1.2.46l-1.44-.5a7.9 7.9 0 0 1-1.6.93l-.3 1.5a1 1 0 0 1-.98.8h-.84a1 1 0 0 1-.98-.8l-.3-1.5a7.9 7.9 0 0 1-1.6-.93l-1.44.5a1 1 0 0 1-1.2-.46l-.42-.72a1 1 0 0 1 .22-1.27l1.15-.98a5.7 5.7 0 0 1 0-1.86l-1.15-.98a1 1 0 0 1-.22-1.27l.42-.72a1 1 0 0 1 1.2-.46l1.44.5c.5-.38 1.03-.7 1.6-.93l.3-1.5Z" opacity=".55"/></svg>
+        Voice &amp; settings
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="welcome" id="welcome">
+      <div class="drop" id="drop">
+        <div class="big">Drop a PDF here to hear it</div>
+        <p class="sub">Aloud pulls the text out of your document and reads it aloud, highlighting each line as it goes. It works with your device's built-in voices, or you can plug in a cloud voice for studio quality and downloadable audio.</p>
+        <button class="cta" id="pickBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a1 1 0 0 1 1 1v9.585l2.293-2.292a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.585V4a1 1 0 0 1 1-1Z"/><path d="M5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1Z"/></svg>
+          Choose a PDF
+        </button>
+        <div class="fineprint">Text-based or scanned PDFs (built-in OCR) · nothing is uploaded to Aloud</div>
+      </div>
+    </div>
+
+    <div class="reader-wrap" id="readerWrap" hidden>
+      <div class="col">
+        <div class="banner" id="ocrBanner" hidden>
+          <div class="b-text"><b>Not much text here.</b> This looks like a scanned document. Run OCR to read the words off the page images.</div>
+          <button class="b-btn" id="ocrBtn">Run OCR</button>
+        </div>
+        <article class="page" id="page">
+          <div class="doc-title"><span id="docName">Document</span><span id="wordCount"></span></div>
+          <div id="content"></div>
+        </article>
+      </div>
+    </div>
+
+    <div class="loading" id="loading" hidden>
+      <div class="spinner"></div>
+      <p id="loadingMsg">Reading your document…</p>
+      <div class="bar" id="loadBar" hidden><i id="loadBarFill"></i></div>
+      <button class="cancel" id="loadCancel" hidden>Cancel</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- settings panel -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="panel" id="panel" aria-label="Voice and settings">
+      <div class="panel-head">
+        <h2>Voice &amp; settings</h2>
+        <button class="panel-close" id="panelClose" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6.4 5A1 1 0 0 0 5 6.4L10.6 12 5 17.6A1 1 0 0 0 6.4 19L12 13.4 17.6 19a1 1 0 0 0 1.4-1.4L13.4 12 19 6.4A1 1 0 0 0 17.6 5L12 10.6 6.4 5Z"/></svg>
+        </button>
+      </div>
+      <div class="panel-body">
+        <div class="grp">
+          <div class="grp-title">Voice engine</div>
+          <div class="seg" id="engineSeg">
+            <button data-engine="device" class="on">Device</button>
+            <button data-engine="openai">OpenAI</button>
+            <button data-engine="eleven">ElevenLabs</button>
+          </div>
+        </div>
+
+        <!-- OpenAI config -->
+        <div class="grp" id="openaiCfg" hidden>
+          <div class="field">
+            <label for="openaiKey">OpenAI API key</label>
+            <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
+            <div class="hint">Kept in this tab only, sent straight to OpenAI. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a>.</div>
+          </div>
+          <div class="field">
+            <label for="openaiVoice">Voice</label>
+            <select id="openaiVoice"></select>
+          </div>
+          <div class="field">
+            <label for="openaiModel">Model</label>
+            <select id="openaiModel">
+              <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (natural)</option>
+              <option value="tts-1-hd">tts-1-hd (higher fidelity)</option>
+              <option value="tts-1">tts-1 (fastest)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ElevenLabs config -->
+        <div class="grp" id="elevenCfg" hidden>
+          <div class="field">
+            <label for="elKey">ElevenLabs API key</label>
+            <input type="password" id="elKey" placeholder="sk_..." autocomplete="off">
+            <div class="hint">Kept in this tab only, sent straight to ElevenLabs. Get one at <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer">elevenlabs.io</a>.</div>
+          </div>
+          <div class="field">
+            <label for="elVoice">Voice</label>
+            <select id="elVoice"><option value="21m00Tcm4TlvDq8ikWAM">Rachel (default)</option></select>
+            <div class="rowbtn">
+              <button class="mini-btn" id="elLoadVoices">Load my voices</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="elModel">Model</label>
+            <select id="elModel">
+              <option value="eleven_multilingual_v2">Multilingual v2 (quality)</option>
+              <option value="eleven_flash_v2_5">Flash v2.5 (fast)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title">Scanned documents</div>
+          <button class="mini-btn" id="ocrBtn2">Read this PDF with OCR</button>
+          <div class="hint" style="font-size:11.5px;color:var(--on-dark-soft)">Turns page images into readable text. Useful when a PDF has no selectable text.</div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-title">Export</div>
+          <button class="dl-btn" id="downloadBtn" disabled>
+            <svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.585l2.293-2.292a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.585V4a1 1 0 0 1 1-1Z"/><path d="M5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1Z"/></svg>
+            Download as audio (.mp3)
+          </button>
+          <div class="note" id="dlNote">Audio download needs a cloud voice (OpenAI or ElevenLabs) — browser voices can't be saved to a file. Generating the whole document will use that provider's credits.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+  <audio id="cloudAudio" hidden></audio>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const synth = window.speechSynthesis;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+const $ = id => document.getElementById(id);
+
+// element refs
+const fileInput=$("fileInput"), drop=$("drop"), welcome=$("welcome"), readerWrap=$("readerWrap"),
+  content=$("content"), dock=$("dock"), loading=$("loading"), loadingMsg=$("loadingMsg"),
+  loadBar=$("loadBar"), loadBarFill=$("loadBarFill"), loadCancel=$("loadCancel"),
+  playBtn=$("playBtn"), prevBtn=$("prevBtn"), nextBtn=$("nextBtn"),
+  rate=$("rate"), rateVal=$("rateVal"), posLabel=$("posLabel"), timeLabel=$("timeLabel"),
+  fill=$("fill"), track=$("track"), voiceSel=$("voiceSel"),
+  docName=$("docName"), wordCount=$("wordCount"), toast=$("toast"),
+  ocrBanner=$("ocrBanner"), cloudAudio=$("cloudAudio"),
+  panel=$("panel"), scrim=$("scrim"), downloadBtn=$("downloadBtn"), dlNote=$("dlNote");
+
+// state
+let chunks=[], spans=[], idx=0, playing=false, paused=false, session=0, totalWords=0;
+let pdfDoc=null, docBaseName="document";
+let engine="device";
+let audioCache={};      // key -> Blob
+let inflight={};        // key -> Promise
+let downloading=false, downloadAbort=false, ocrRunning=false;
+
+const PLAY_SVG='<path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.29-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14Z"/>';
+const PAUSE_SVG='<path d="M8 5a1 1 0 0 0-1 1v12a1 1 0 0 0 2 0V6a1 1 0 0 0-1-1Zm8 0a1 1 0 0 0-1 1v12a1 1 0 0 0 2 0V6a1 1 0 0 0-1-1Z"/>';
+const OPENAI_VOICES=["alloy","ash","ballad","coral","echo","fable","onyx","nova","sage","shimmer","verse","marin","cedar"];
+
+const cfg={ openaiKey:"", openaiVoice:"coral", openaiModel:"gpt-4o-mini-tts",
+            elKey:"", elVoice:"21m00Tcm4TlvDq8ikWAM", elModel:"eleven_multilingual_v2" };
+
+/* ---------------- dock (built in JS so refs above resolve) ---------------- */
+dock.innerHTML = `
+  <div class="transport">
+    <button class="tbtn" id="prevBtn" title="Previous line" aria-label="Previous line"><svg viewBox="0 0 24 24"><path d="M7 6a1 1 0 0 1 2 0v4.6l8.4-5.25A1 1 0 0 1 19 6.1v11.8a1 1 0 0 1-1.6.8L9 13.4V18a1 1 0 1 1-2 0V6Z"/></svg></button>
+    <button class="tbtn play-main" id="playBtn" title="Play" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24">${PLAY_SVG}</svg></button>
+    <button class="tbtn" id="nextBtn" title="Next line" aria-label="Next line"><svg viewBox="0 0 24 24"><path d="M17 6a1 1 0 0 0-2 0v4.6L6.6 5.35A1 1 0 0 0 5 6.1v11.8a1 1 0 0 0 1.6.8L15 13.4V18a1 1 0 1 0 2 0V6Z"/></svg></button>
+  </div>
+  <div class="progress-area">
+    <div class="progress-top"><span class="now" id="posLabel">Ready</span><span id="timeLabel"></span></div>
+    <div class="track" id="track" title="Jump to a position"><div class="fill" id="fill"></div></div>
+  </div>
+  <div class="settings">
+    <div class="ctrl voice-ctrl"><label for="voiceSel">Voice</label><select id="voiceSel"></select></div>
+    <div class="ctrl"><label for="rate">Speed</label><input type="range" id="rate" min="0.6" max="1.8" step="0.05" value="1"><span class="rate-val" id="rateVal">1.0×</span></div>
+  </div>`;
+// re-grab refs now that dock exists
+const R = {
+  playBtn:$("playBtn"), playIcon:$("playIcon"), prevBtn:$("prevBtn"), nextBtn:$("nextBtn"),
+  posLabel:$("posLabel"), timeLabel:$("timeLabel"), track:$("track"), fill:$("fill"),
+  voiceSel:$("voiceSel"), rate:$("rate"), rateVal:$("rateVal")
+};
+
+/* ---------------- file handling ---------------- */
+$("pickBtn").onclick=()=>fileInput.click();
+$("changeBtn").onclick=()=>fileInput.click();
+fileInput.onchange=e=>{ if(e.target.files[0]) loadPDF(e.target.files[0]); };
+
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();if(ev==="dragleave"&&drop.contains(e.relatedTarget))return;drop.classList.remove("hot");}));
+drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f&&f.type==="application/pdf")loadPDF(f);else showToast("That doesn't look like a PDF.");});
+document.addEventListener("dragover",e=>e.preventDefault());
+document.addEventListener("drop",e=>{if(readerWrap.hidden)return;e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type==="application/pdf")loadPDF(f);});
+
+async function loadPDF(file){
+  stopReading();
+  audioCache={}; inflight={};
+  showLoading("Opening your document…");
+  try{
+    const buf=await file.arrayBuffer();
+    pdfDoc=await pdfjsLib.getDocument({data:buf}).promise;
+    let raw="";
+    for(let p=1;p<=pdfDoc.numPages;p++){
+      loadingMsg.textContent=`Reading page ${p} of ${pdfDoc.numPages}…`;
+      const pg=await pdfDoc.getPage(p);
+      const tc=await pg.getTextContent();
+      let t="";
+      for(const it of tc.items){ t+=it.str; if(it.hasEOL)t+="\n"; else if(!it.str.endsWith(" "))t+=" "; }
+      raw+=t+"\n\n";
+    }
+    docBaseName=file.name.replace(/\.pdf$/i,"")||"document";
+    const clean=normalize(raw);
+    welcome.hidden=true; readerWrap.hidden=false; dock.hidden=false;
+    $("changeBtn").hidden=false; $("settingsBtn").hidden=false;
+    hideLoading();
+    if(!clean.trim()){
+      applyText("(No selectable text found in this PDF.)");
+      ocrBanner.hidden=false;
+      posLabel_set("This looks scanned — try OCR");
+    }else{
+      applyText(clean);
+      // sparse text heuristic -> likely scanned
+      ocrBanner.hidden = !(totalWords < pdfDoc.numPages*12);
+      posLabel_set("Ready — press play");
+    }
+    populateVoices();
+  }catch(err){
+    console.error(err); hideLoading();
+    showToast("Couldn't read that PDF. It may be encrypted or corrupted.");
+  }
+}
+
+function applyText(clean){
+  chunks=chunkText(clean);
+  totalWords=clean.trim().split(/\s+/).filter(Boolean).length;
+  docName.textContent=docBaseName;
+  wordCount.textContent=totalWords.toLocaleString()+" words";
+  render();
+  idx=0; audioCache={}; inflight={};
+  updateProgress();
+}
+
+/* ---------------- text processing ---------------- */
+function normalize(t){
+  return t.replace(/\r/g,"\n").replace(/([A-Za-z])-\n([a-z])/g,"$1$2")
+    .replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").replace(/[ \t]{2,}/g," ").trim();
+}
+function chunkText(text){
+  const out=[]; const paras=text.split(/\n{2,}/);
+  for(const para of paras){
+    const flat=para.replace(/\n+/g," ").replace(/\s{2,}/g," ").trim(); if(!flat)continue;
+    const sentences=flat.match(/[^.!?…]+[.!?…]+["'”’)\]]*\s*|[^.!?…]+$/g)||[flat];
+    let first=true;
+    for(let s of sentences){ s=s.trim(); if(!s)continue;
+      for(const piece of splitLong(s)){ out.push({text:piece,para:first}); first=false; } }
+  }
+  return out;
+}
+function splitLong(s){
+  const MAX=260; if(s.length<=MAX)return[s];
+  const pieces=[]; let rest=s;
+  while(rest.length>MAX){
+    let cut=rest.lastIndexOf(", ",MAX);
+    if(cut<60)cut=rest.lastIndexOf("; ",MAX);
+    if(cut<60)cut=rest.lastIndexOf(" ",MAX);
+    if(cut<60)cut=MAX;
+    pieces.push(rest.slice(0,cut+1).trim()); rest=rest.slice(cut+1);
+  }
+  if(rest.trim())pieces.push(rest.trim());
+  return pieces;
+}
+function render(){
+  content.innerHTML="";
+  spans=chunks.map((c,i)=>{
+    const sp=document.createElement("span");
+    sp.className="sentence"+(c.para?" para":"");
+    sp.textContent=c.text+" "; sp.dataset.i=i;
+    sp.addEventListener("click",()=>jumpTo(i,true));
+    content.appendChild(sp); return sp;
+  });
+}
+
+/* ---------------- voices (dock dropdown reflects current engine) ---------------- */
+let deviceVoices=[];
+function populateVoices(){
+  if(engine==="device"){
+    deviceVoices=synth.getVoices();
+    const cur=R.voiceSel.value; R.voiceSel.innerHTML="";
+    const sorted=[...deviceVoices].sort((a,b)=>{const ae=a.lang.startsWith("en")?0:1,be=b.lang.startsWith("en")?0:1;return ae-be||a.name.localeCompare(b.name);});
+    for(const v of sorted){const o=document.createElement("option");o.value=v.name;o.textContent=`${v.name} · ${v.lang}`;R.voiceSel.appendChild(o);}
+    if(cur&&sorted.some(v=>v.name===cur))R.voiceSel.value=cur;
+    else{const def=sorted.find(v=>v.default&&v.lang.startsWith("en"))||sorted.find(v=>v.lang.startsWith("en"))||sorted[0];if(def)R.voiceSel.value=def.name;}
+    R.voiceSel.disabled=false;
+  } else if(engine==="openai"){
+    R.voiceSel.innerHTML=OPENAI_VOICES.map(v=>`<option value="${v}">${v[0].toUpperCase()+v.slice(1)}</option>`).join("");
+    R.voiceSel.value=cfg.openaiVoice; R.voiceSel.disabled=false;
+  } else {
+    // ElevenLabs voices come from the panel selector; mirror it here
+    R.voiceSel.innerHTML=[...$("elVoice").options].map(o=>`<option value="${o.value}">${o.textContent}</option>`).join("");
+    R.voiceSel.value=cfg.elVoice; R.voiceSel.disabled=false;
+  }
+}
+synth.onvoiceschanged=()=>{ if(engine==="device") populateVoices(); };
+
+R.voiceSel.onchange=()=>{
+  if(engine==="device"){ /* name used directly */ }
+  else if(engine==="openai"){ cfg.openaiVoice=R.voiceSel.value; $("openaiVoice").value=R.voiceSel.value; audioCache={}; }
+  else { cfg.elVoice=R.voiceSel.value; $("elVoice").value=R.voiceSel.value; audioCache={}; }
+  if(playing&&!paused) play();
+};
+
+/* ---------------- cloud TTS ---------------- */
+function voiceKey(){ return engine==="openai" ? `oa:${cfg.openaiModel}:${cfg.openaiVoice}` : `el:${cfg.elModel}:${cfg.elVoice}`; }
+function cacheKey(i){ return `${voiceKey()}#${i}`; }
+
+async function fetchOpenAI(text){
+  const res=await fetch("https://api.openai.com/v1/audio/speech",{
+    method:"POST",headers:{"Authorization":"Bearer "+cfg.openaiKey,"Content-Type":"application/json"},
+    body:JSON.stringify({model:cfg.openaiModel,voice:cfg.openaiVoice,input:text,response_format:"mp3"})
+  });
+  if(!res.ok) throw new Error(await errMsg(res,"OpenAI"));
+  return await res.blob();
+}
+async function fetchEleven(text){
+  const url=`https://api.elevenlabs.io/v1/text-to-speech/${cfg.elVoice}?output_format=mp3_44100_128`;
+  const res=await fetch(url,{method:"POST",headers:{"xi-api-key":cfg.elKey,"Content-Type":"application/json"},
+    body:JSON.stringify({text,model_id:cfg.elModel})});
+  if(!res.ok) throw new Error(await errMsg(res,"ElevenLabs"));
+  return await res.blob();
+}
+async function errMsg(res,who){
+  let d=""; try{const j=await res.json();d=j.error?.message||j.detail?.message||JSON.stringify(j.detail||"");}catch{}
+  if(res.status===401) return `${who}: invalid API key.`;
+  if(res.status===429) return `${who}: rate limit or quota reached.`;
+  return `${who} error ${res.status}${d?": "+d:""}`;
+}
+async function getAudio(i){
+  const k=cacheKey(i);
+  if(audioCache[k]) return audioCache[k];
+  if(inflight[k]) return inflight[k];
+  const text=chunks[i].text;
+  const p=(engine==="openai"?fetchOpenAI(text):fetchEleven(text)).then(b=>{audioCache[k]=b;delete inflight[k];return b;})
+    .catch(e=>{delete inflight[k];throw e;});
+  inflight[k]=p; return p;
+}
+function prefetch(i){ if(i<chunks.length && (engine==="openai"||engine==="eleven")) getAudio(i).catch(()=>{}); }
+
+/* ---------------- unified playback ---------------- */
+function playChunk(i){
+  if(i>=chunks.length) return finish();
+  idx=i; highlight(i); updateProgress();
+  const mySession=session;
+  if(engine==="device"){
+    const u=new SpeechSynthesisUtterance(chunks[i].text);
+    const v=deviceVoices.find(x=>x.name===R.voiceSel.value); if(v)u.voice=v;
+    u.rate=parseFloat(R.rate.value); u.pitch=1;
+    u.onend=()=>{ if(mySession===session) playChunk(i+1); };
+    u.onerror=()=>{ if(mySession===session) playChunk(i+1); };
+    synth.speak(u);
+  } else {
+    posLabel_set("Generating audio…");
+    getAudio(i).then(blob=>{
+      if(mySession!==session) return;
+      cloudAudio.src=URL.createObjectURL(blob);
+      cloudAudio.playbackRate=parseFloat(R.rate.value);
+      cloudAudio.onended=()=>{ if(mySession===session) playChunk(i+1); };
+      cloudAudio.onerror=()=>{ if(mySession===session) playChunk(i+1); };
+      cloudAudio.play().then(()=>{ if(mySession===session){posLabel_set("Reading…");prefetch(i+1);} })
+        .catch(()=>{ if(mySession===session) showToast("Playback was blocked — press play again."); });
+    }).catch(e=>{
+      if(mySession!==session) return;
+      stopReading(); showToast(e.message||"Couldn't generate audio.");
+    });
+  }
+}
+function play(){
+  if(!chunks.length) return;
+  if((engine==="openai"&&!cfg.openaiKey)||(engine==="eleven"&&!cfg.elKey)){
+    openPanel(); showToast(`Add your ${engine==="openai"?"OpenAI":"ElevenLabs"} API key to use this voice.`); return;
+  }
+  session++; synth.cancel(); try{cloudAudio.pause();}catch{}
+  playing=true; paused=false; setPlayIcon(true);
+  playChunk(idx>=chunks.length?0:idx);
+}
+function pauseReading(){
+  if(!playing||paused)return;
+  if(engine==="device")synth.pause(); else cloudAudio.pause();
+  paused=true; setPlayIcon(false); posLabel_set("Paused");
+}
+function resumeReading(){
+  if(!playing||!paused)return;
+  if(engine==="device")synth.resume(); else cloudAudio.play();
+  paused=false; setPlayIcon(true); posLabel_set("Reading…");
+}
+function stopReading(){ session++; synth.cancel(); try{cloudAudio.pause();}catch{} playing=false; paused=false; setPlayIcon(false); }
+function finish(){ playing=false; paused=false; setPlayIcon(false); posLabel_set("Finished"); clearHighlight(); updateProgress(); }
+
+R.playBtn.onclick=()=>{ if(!playing)play(); else if(paused)resumeReading(); else pauseReading(); };
+R.prevBtn.onclick=()=>jumpTo(Math.max(0,idx-1),playing);
+R.nextBtn.onclick=()=>jumpTo(Math.min(chunks.length-1,idx+1),playing);
+function jumpTo(i,thenPlay){
+  session++; synth.cancel(); try{cloudAudio.pause();}catch{}
+  idx=i; highlight(i); updateProgress();
+  if(thenPlay) play(); else { playing=false; paused=false; setPlayIcon(false); }
+}
+R.track.onclick=e=>{const r=R.track.getBoundingClientRect();const pct=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));jumpTo(Math.min(chunks.length-1,Math.floor(pct*chunks.length)),playing);};
+
+R.rate.oninput=()=>{
+  R.rateVal.textContent=parseFloat(R.rate.value).toFixed(1)+"×";
+  if(engine!=="device"&&playing) cloudAudio.playbackRate=parseFloat(R.rate.value); // live for cloud
+};
+R.rate.onchange=()=>{ if(engine==="device"&&playing&&!paused) play(); };
+
+/* ---------------- ui helpers ---------------- */
+function setPlayIcon(on){R.playIcon.innerHTML=on?PAUSE_SVG:PLAY_SVG;R.playBtn.title=on?"Pause":"Play";R.playBtn.setAttribute("aria-label",on?"Pause":"Play");}
+function highlight(i){clearHighlight();const sp=spans[i];if(!sp)return;sp.classList.add("active");sp.scrollIntoView({behavior:reduceMotion?"auto":"smooth",block:"center"});}
+function clearHighlight(){spans.forEach(s=>s.classList.remove("active"));}
+function posLabel_set(t){ R.posLabel.textContent=t; }
+function updateProgress(){
+  const pct=chunks.length?(idx/chunks.length)*100:0; R.fill.style.width=pct+"%";
+  const wordsLeft=chunks.slice(idx).reduce((n,c)=>n+c.text.split(/\s+/).length,0);
+  const wpm=155*parseFloat(R.rate.value); const mins=wordsLeft/wpm;
+  R.timeLabel.textContent=(chunks.length&&idx<chunks.length)?(mins>=1?`~${Math.round(mins)} min left`:"<1 min left"):"";
+}
+let toastTimer;
+function showToast(m){toast.textContent=m;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),4200);}
+function showLoading(m,withBar){loading.hidden=false;loadingMsg.textContent=m;loadBar.hidden=!withBar;loadCancel.hidden=!withBar;loadBarFill.style.width="0%";}
+function hideLoading(){loading.hidden=true;loadBar.hidden=true;loadCancel.hidden=true;}
+
+/* ---------------- settings panel ---------------- */
+function openPanel(){panel.classList.add("open");scrim.classList.add("open");}
+function closePanel(){panel.classList.remove("open");scrim.classList.remove("open");}
+$("settingsBtn").onclick=openPanel; $("panelClose").onclick=closePanel; scrim.onclick=closePanel;
+
+$("engineSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-engine]"); if(!b)return;
+  engine=b.dataset.engine;
+  [...$("engineSeg").children].forEach(c=>c.classList.toggle("on",c===b));
+  $("openaiCfg").hidden=engine!=="openai"; $("elevenCfg").hidden=engine!=="eleven";
+  stopReading(); idx=Math.min(idx,Math.max(0,chunks.length-1)); audioCache={}; inflight={};
+  populateVoices(); refreshDownloadState(); updateProgress();
+  posLabel_set(chunks.length?"Ready — press play":"Ready");
+});
+
+// OpenAI config bindings
+$("openaiVoice").innerHTML=OPENAI_VOICES.map(v=>`<option value="${v}">${v[0].toUpperCase()+v.slice(1)}</option>`).join("");
+$("openaiVoice").value=cfg.openaiVoice;
+$("openaiKey").oninput=e=>{cfg.openaiKey=e.target.value.trim();refreshDownloadState();};
+$("openaiVoice").onchange=e=>{cfg.openaiVoice=e.target.value;audioCache={};if(engine==="openai")populateVoices();};
+$("openaiModel").onchange=e=>{cfg.openaiModel=e.target.value;audioCache={};};
+
+// ElevenLabs config bindings
+$("elKey").oninput=e=>{cfg.elKey=e.target.value.trim();refreshDownloadState();};
+$("elVoice").onchange=e=>{cfg.elVoice=e.target.value;audioCache={};if(engine==="eleven")populateVoices();};
+$("elModel").onchange=e=>{cfg.elModel=e.target.value;audioCache={};};
+$("elLoadVoices").onclick=async()=>{
+  if(!cfg.elKey){showToast("Enter your ElevenLabs API key first.");return;}
+  const btn=$("elLoadVoices"); btn.disabled=true; btn.textContent="Loading…";
+  try{
+    const res=await fetch("https://api.elevenlabs.io/v1/voices",{headers:{"xi-api-key":cfg.elKey}});
+    if(!res.ok) throw new Error(await errMsg(res,"ElevenLabs"));
+    const data=await res.json();
+    const vs=data.voices||[];
+    if(vs.length){
+      $("elVoice").innerHTML=vs.map(v=>`<option value="${v.voice_id}">${v.name}${v.labels&&v.labels.accent?" · "+v.labels.accent:""}</option>`).join("");
+      cfg.elVoice=$("elVoice").value; if(engine==="eleven")populateVoices();
+      showToast(`Loaded ${vs.length} voice${vs.length>1?"s":""}.`);
+    } else showToast("No voices found on that account.");
+  }catch(e){showToast(e.message||"Couldn't load voices.");}
+  btn.disabled=false; btn.textContent="Load my voices";
+};
+
+/* ---------------- OCR ---------------- */
+$("ocrBtn").onclick=runOCR; $("ocrBtn2").onclick=()=>{closePanel();runOCR();};
+function ensureTesseract(){
+  return new Promise((res,rej)=>{
+    if(window.Tesseract)return res();
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    s.onload=()=>res(); s.onerror=()=>rej(new Error("load"));
+    document.head.appendChild(s);
+  });
+}
+async function runOCR(){
+  if(!pdfDoc||ocrRunning)return;
+  ocrRunning=true; stopReading(); ocrBanner.hidden=true;
+  showLoading("Loading the OCR engine…",true); loadCancel.hidden=false;
+  let cancelled=false; loadCancel.onclick=()=>{cancelled=true;};
+  try{
+    await ensureTesseract();
+    const worker=await Tesseract.createWorker("eng",1,{logger:m=>{
+      if(m.status==="recognizing text") loadBarFill.style.width=Math.round(m.progress*100)+"%";
+    }});
+    let all="";
+    for(let p=1;p<=pdfDoc.numPages;p++){
+      if(cancelled)break;
+      loadingMsg.textContent=`Scanning page ${p} of ${pdfDoc.numPages}…`;
+      loadBarFill.style.width="0%";
+      const page=await pdfDoc.getPage(p);
+      const viewport=page.getViewport({scale:2});
+      const canvas=document.createElement("canvas");
+      canvas.width=viewport.width; canvas.height=viewport.height;
+      await page.render({canvasContext:canvas.getContext("2d"),viewport}).promise;
+      const {data}=await worker.recognize(canvas);
+      all+=(data.text||"")+"\n\n";
+    }
+    await worker.terminate();
+    hideLoading();
+    if(cancelled){ showToast("OCR cancelled."); ocrRunning=false; return; }
+    const clean=normalize(all);
+    if(!clean.trim()){ showToast("OCR didn't find readable text on these pages."); ocrRunning=false; return; }
+    applyText(clean); posLabel_set("Ready — press play");
+    showToast("OCR complete — ready to read.");
+  }catch(e){
+    console.error(e); hideLoading();
+    showToast("OCR couldn't run in this environment. Try opening the file in a regular browser tab.");
+  }
+  ocrRunning=false;
+}
+
+/* ---------------- download as audio ---------------- */
+function refreshDownloadState(){
+  const cloud=(engine==="openai"||engine==="eleven");
+  const hasKey=engine==="openai"?!!cfg.openaiKey:engine==="eleven"?!!cfg.elKey:false;
+  downloadBtn.disabled=!(cloud&&hasKey&&chunks.length&&!downloading);
+  dlNote.textContent = !cloud
+    ? "Audio download needs a cloud voice (OpenAI or ElevenLabs) — browser voices can't be saved to a file."
+    : !hasKey ? "Add your API key above to enable download."
+    : "Generates the whole document with the selected cloud voice and saves one .mp3. Uses that provider's credits.";
+}
+downloadBtn.onclick=async()=>{
+  if(downloading){ downloadAbort=true; return; }
+  if(!(engine==="openai"||engine==="eleven"))return;
+  downloading=true; downloadAbort=false;
+  downloadBtn.innerHTML="Cancel export";
+  showLoading("Preparing audio — 0%",true); loadCancel.hidden=false;
+  loadCancel.onclick=()=>{downloadAbort=true;};
+  const parts=[];
+  try{
+    for(let i=0;i<chunks.length;i++){
+      if(downloadAbort)break;
+      loadingMsg.textContent=`Generating audio — ${Math.round(i/chunks.length*100)}%  (${i}/${chunks.length})`;
+      loadBarFill.style.width=Math.round(i/chunks.length*100)+"%";
+      parts.push(await getAudio(i));
+    }
+    hideLoading();
+    if(downloadAbort){ showToast("Export cancelled."); }
+    else{
+      const blob=new Blob(parts,{type:"audio/mpeg"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=`${docBaseName}.mp3`;
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast("Saved — check your downloads.");
+    }
+  }catch(e){ hideLoading(); showToast(e.message||"Export failed."); }
+  downloading=false; downloadAbort=false;
+  downloadBtn.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.585l2.293-2.292a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.585V4a1 1 0 0 1 1-1Z"/><path d="M5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1Z"/></svg> Download as audio (.mp3)`;
+  refreshDownloadState();
+};
+
+/* ---------------- keyboard ---------------- */
+document.addEventListener("keydown",e=>{
+  if(dock.hidden||panel.classList.contains("open"))return;
+  const tag=(e.target.tagName||"").toLowerCase(); if(tag==="select"||tag==="input")return;
+  if(e.code==="Space"){e.preventDefault();R.playBtn.click();}
+  else if(e.code==="ArrowRight"){e.preventDefault();R.nextBtn.click();}
+  else if(e.code==="ArrowLeft"){e.preventDefault();R.prevBtn.click();}
+});
+
+// Chrome truncates long device speech; nudge it along.
+setInterval(()=>{ if(engine==="device"&&playing&&!paused&&synth.speaking){synth.pause();synth.resume();} },9000);
+window.addEventListener("beforeunload",()=>{synth.cancel();try{cloudAudio.pause();}catch{}});
+
+populateVoices(); refreshDownloadState();
+</script>
+</body>
+</html>
