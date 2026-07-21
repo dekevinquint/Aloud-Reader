@@ -59,8 +59,8 @@ export function AloudReader() {
   return (
     <>
       <header>
-        <div className="mark" aria-hidden="true" />
-        <div className="brand">
+        <div className="mark" aria-hidden="true" onClick={a.goHome} style={{ cursor: "pointer" }} />
+        <div className="brand" onClick={a.goHome} style={{ cursor: "pointer" }}>
           <h1>Aloud</h1>
           <p>Your PDFs, read out loud</p>
         </div>
