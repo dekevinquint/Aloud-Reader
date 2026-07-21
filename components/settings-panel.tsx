@@ -3,7 +3,7 @@
 import { useState } from "react"
 import type { CloudConfig, ElevenVoice, Engine } from "@/lib/tts"
 import { OPENAI_VOICES } from "@/lib/tts"
-import { CloseIcon, DownloadIcon } from "./icons"
+import { CloseIcon, DownloadIcon, LockIcon } from "./icons"
 
 export function SettingsPanel({
   open,
@@ -13,6 +13,9 @@ export function SettingsPanel({
   canDownload,
   downloading,
   downloadNote,
+  isPro,
+  fontScale,
+  dyslexiaFont,
   onClose,
   onSwitchEngine,
   onOpenAIKey,
@@ -24,6 +27,9 @@ export function SettingsPanel({
   onLoadElVoices,
   onRunOCR,
   onDownload,
+  onUpgrade,
+  onFontScale,
+  onDyslexiaFont,
 }: {
   open: boolean
   engine: Engine
@@ -32,6 +38,9 @@ export function SettingsPanel({
   canDownload: boolean
   downloading: boolean
   downloadNote: string
+  isPro: boolean
+  fontScale: number
+  dyslexiaFont: boolean
   onClose: () => void
   onSwitchEngine: (e: Engine) => void
   onOpenAIKey: (v: string) => void
@@ -40,6 +49,9 @@ export function SettingsPanel({
   onElKey: (v: string) => void
   onElVoice: (v: string) => void
   onElModel: (v: string) => void
+  onUpgrade: () => void
+  onFontScale: (v: number) => void
+  onDyslexiaFont: (v: boolean) => void
   onLoadElVoices: () => Promise<void>
   onRunOCR: () => void
   onDownload: () => void
@@ -60,15 +72,19 @@ export function SettingsPanel({
           <div className="grp">
             <div className="grp-title">Voice engine</div>
             <div className="seg">
-              {(["device", "openai", "eleven"] as Engine[]).map((e) => (
-                <button
-                  key={e}
-                  className={engine === e ? "on" : ""}
-                  onClick={() => onSwitchEngine(e)}
-                >
-                  {e === "device" ? "Device" : e === "openai" ? "OpenAI" : "ElevenLabs"}
-                </button>
-              ))}
+              {(["device", "openai", "eleven"] as Engine[]).map((e) => {
+                const locked = e !== "device" && !isPro
+                return (
+                  <button
+                    key={e}
+                    className={engine === e ? "on" : ""}
+                    onClick={() => (locked ? onUpgrade() : onSwitchEngine(e))}
+                  >
+                    {e === "device" ? "Device" : e === "openai" ? "OpenAI" : "ElevenLabs"}
+                    {locked && <LockIcon width={11} height={11} style={{ fill: "currentColor", marginLeft: 4 }} />}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -169,33 +185,73 @@ export function SettingsPanel({
 
           <div className="grp">
             <div className="grp-title">Scanned documents</div>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                onClose()
-                onRunOCR()
-              }}
-            >
-              Read this PDF with OCR
-            </button>
-            <div className="hint" style={{ fontSize: "11.5px", color: "var(--on-dark-soft)" }}>
-              Turns page images into readable text. Useful when a PDF has no selectable text.
-            </div>
+            {isPro ? (
+              <>
+                <button
+                  className="mini-btn"
+                  onClick={() => {
+                    onClose()
+                    onRunOCR()
+                  }}
+                >
+                  Read this PDF with OCR
+                </button>
+                <div className="hint" style={{ fontSize: "11.5px", color: "var(--on-dark-soft)" }}>
+                  Turns page images into readable text. Useful when a PDF has no selectable text.
+                </div>
+              </>
+            ) : (
+              <button className="mini-btn locked" onClick={onUpgrade}>
+                <LockIcon width={13} height={13} style={{ fill: "currentColor" }} />
+                OCR for scanned PDFs — Pro
+              </button>
+            )}
           </div>
 
           <div className="grp">
             <div className="grp-title">Export</div>
-            <button className="dl-btn" disabled={!canDownload && !downloading} onClick={onDownload}>
-              {downloading ? (
-                "Cancel export"
-              ) : (
-                <>
-                  <DownloadIcon style={{ fill: "currentColor" }} />
-                  Download as audio (.mp3)
-                </>
-              )}
-            </button>
-            <div className="note">{downloadNote}</div>
+            {isPro ? (
+              <>
+                <button className="dl-btn" disabled={!canDownload && !downloading} onClick={onDownload}>
+                  {downloading ? (
+                    "Cancel export"
+                  ) : (
+                    <>
+                      <DownloadIcon style={{ fill: "currentColor" }} />
+                      Download as audio (.mp3)
+                    </>
+                  )}
+                </button>
+                <div className="note">{downloadNote}</div>
+              </>
+            ) : (
+              <button className="dl-btn locked" onClick={onUpgrade}>
+                <LockIcon width={13} height={13} style={{ fill: "currentColor" }} />
+                Download as audio — Pro
+              </button>
+            )}
+          </div>
+
+          <div className="grp">
+            <div className="grp-title">Focus mode</div>
+            {isPro ? (
+              <>
+                <div className="seg focus-seg">
+                  <button onClick={() => onFontScale(fontScale - 0.1)}>A-</button>
+                  <button onClick={() => onFontScale(1)}>Reset</button>
+                  <button onClick={() => onFontScale(fontScale + 0.1)}>A+</button>
+                </div>
+                <label className="check-row">
+                  <input type="checkbox" checked={dyslexiaFont} onChange={(e) => onDyslexiaFont(e.target.checked)} />
+                  Dyslexia-friendly font
+                </label>
+              </>
+            ) : (
+              <button className="mini-btn locked" onClick={onUpgrade}>
+                <LockIcon width={13} height={13} style={{ fill: "currentColor" }} />
+                Text size and dyslexia-friendly font — Pro
+              </button>
+            )}
           </div>
         </div>
       </aside>
