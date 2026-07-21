@@ -758,3 +758,64 @@ input[type="range"]::-moz-range-thumb {
     animation: none !important;
   }
 }
+
+@media (max-width: 480px) {
+  header {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .brand h1 {
+    font-size: 16px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+  .ghost-btn {
+    padding: 7px 9px;
+    font-size: 0;
+    gap: 0;
+  }
+  .ghost-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+  .welcome {
+    padding: 26px 14px;
+  }
+  .drop {
+    padding: 32px 16px;
+  }
+  .drop .big {
+    font-size: 22px;
+  }
+  .drop .sub {
+    font-size: 13px;
+  }
+  .page {
+    padding: 26px 18px 34px;
+    font-size: 16px;
+  }
+  .dock {
+    padding: 10px 12px;
+  }
+  .settings {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  select {
+    max-width: 96px;
+    font-size: 12px;
+  }
+  .play-main {
+    width: 48px;
+    height: 48px;
+  }
+  .tbtn {
+    width: 38px;
+    height: 38px;
+  }
+  .panel-body {
+    padding: 16px;
+  }
+}
