@@ -33,7 +33,7 @@ export function WelcomeDrop({
           if (f && f.type === "application/pdf") onFile(f)
         }}
       >
-        <div className="big">Drop a PDF here to hear it</div>
+        <div className="big">Drop a PDF here and listen to it</div>
         <p className="sub">
           Aloud pulls the text out of your document and reads it aloud, highlighting each line as it
           goes. It works with your device&apos;s built-in voices, or you can plug in a cloud voice for
