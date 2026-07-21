@@ -24,8 +24,8 @@ export function AloudReader() {
     const onDrop = (e: DragEvent) => {
       if (!a.hasDoc) return
       e.preventDefault()
-      const f = e.dataTransfer?.files[0]
-      if (f && f.type === "application/pdf") a.loadPDF(f)
+      const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type === "application/pdf")
+      if (files.length) a.loadPDFs(files)
     }
     document.addEventListener("dragover", onDragOver)
     document.addEventListener("drop", onDrop)
@@ -97,6 +97,8 @@ export function AloudReader() {
             totalWords={a.totalWords}
             ocrBannerVisible={a.ocrBannerVisible}
             reduceMotion={a.reduceMotion.current}
+            fontScale={a.fontScale}
+            dyslexiaFont={a.dyslexiaFont}
             onSentenceClick={(i) => a.jumpTo(i, a.playing)}
             onRunOCR={a.runOCR}
           />
@@ -125,6 +127,12 @@ export function AloudReader() {
           onLoadElVoices={a.loadMyElevenVoices}
           onRunOCR={a.runOCR}
           onDownload={a.downloadAudio}
+          isPro={a.isPro}
+          fontScale={a.fontScale}
+          dyslexiaFont={a.dyslexiaFont}
+          onUpgrade={a.startCheckout}
+          onFontScale={a.setFontScale}
+          onDyslexiaFont={a.setDyslexiaFont}
         />
 
         
@@ -138,7 +146,7 @@ export function AloudReader() {
             setLibraryOpen(false)
           }}
           onRemove={a.removeLibraryEntry}
-          onUpgrade={() => a.setIsPro(true)}
+          onUpgrade={a.startCheckout}
         />
 {a.hasDoc && (
           <TransportDock
@@ -166,10 +174,11 @@ export function AloudReader() {
         ref={fileInputRef}
         type="file"
         accept="application/pdf,.pdf"
+        multiple
         hidden
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) a.loadPDF(f)
+          const files = Array.from(e.target.files || [])
+          if (files.length) a.loadPDFs(files)
           e.target.value = ""
         }}
       />
