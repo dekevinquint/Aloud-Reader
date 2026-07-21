@@ -41,6 +41,16 @@ const DEFAULT_CFG: CloudConfig = {
 
 const DEFAULT_EL_VOICES: ElevenVoice[] = [{ voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (default)" }]
 
+export type LibraryEntry = {
+  id: string
+  name: string
+  text: string
+  totalChunks: number
+  wordCount: number
+  addedAt: number
+  updatedAt: number
+}
+
 export function useAloud() {
   // ---- reactive state ----
   const [chunks, setChunks] = useState<Chunk[]>([])
@@ -62,6 +72,8 @@ export function useAloud() {
   const [selectedDeviceVoice, setSelectedDeviceVoice] = useState<string>("")
   const [cfg, setCfg] = useState<CloudConfig>(DEFAULT_CFG)
   const [elVoices, setElVoices] = useState<ElevenVoice[]>(DEFAULT_EL_VOICES)
+  const [library, setLibrary] = useState<LibraryEntry[]>([])
+  const [isPro, setIsProState] = useState(false)
 
   // ---- mutable refs (avoid stale closures across async playback) ----
   const sessionRef = useRef(0)
@@ -420,6 +432,7 @@ export function useAloud() {
     setChunks(cks)
     setTotalWords(countWords(clean))
     setDocName(name)
+    docNameRef.current = name
     idxRef.current = 0
     setIdx(0)
     clearCache()
@@ -459,6 +472,26 @@ export function useAloud() {
               }
             }
           } catch {}
+          try {
+            const now = Date.now()
+            setLibrary((prev) => {
+              const existing = prev.find((e) => e.id === base)
+              const entry: LibraryEntry = {
+                id: base,
+                name: base,
+                text: clean,
+                totalChunks: cks.length,
+                wordCount: countWords(clean),
+                addedAt: existing ? existing.addedAt : now,
+                updatedAt: now,
+              }
+              const next = [entry, ...prev.filter((e) => e.id !== base)]
+              try {
+                localStorage.setItem("aloud:library", JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          } catch {}
           const words = countWords(clean)
           setOcrBannerVisible(words < pdf.numPages * 12)
           setStatus(cks.length ? "Ready — press play" : "Ready")
@@ -471,6 +504,58 @@ export function useAloud() {
     },
     [applyText, clearCache, showToast, stopReadingInternal],
   )
+
+  // ---- library (paid feature) ----
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("aloud:library")
+      if (raw) setLibrary(JSON.parse(raw))
+    } catch {}
+    try {
+      setIsProState(localStorage.getItem("aloud:pro") === "1")
+    } catch {}
+  }, [])
+
+  const openLibraryEntry = useCallback(
+    (id: string) => {
+      const entry = library.find((e) => e.id === id)
+      if (!entry) return
+      stopReadingInternal()
+      clearCache()
+      setHasDoc(true)
+      const cks = applyText(entry.text, entry.name)
+      try {
+        const saved = localStorage.getItem(`aloud:pos:${entry.name}`)
+        if (saved) {
+          const savedIdx = parseInt(saved, 10)
+          if (!isNaN(savedIdx) && savedIdx > 0 && savedIdx < cks.length) {
+            idxRef.current = savedIdx
+            setIdx(savedIdx)
+          }
+        }
+      } catch {}
+      setOcrBannerVisible(false)
+      setStatus(cks.length ? "Ready — press play" : "Ready")
+    },
+    [library, stopReadingInternal, clearCache, applyText],
+  )
+
+  const removeLibraryEntry = useCallback((id: string) => {
+    setLibrary((prev) => {
+      const next = prev.filter((e) => e.id !== id)
+      try {
+        localStorage.setItem("aloud:library", JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }, [])
+
+  const setIsPro = useCallback((v: boolean) => {
+    setIsProState(v)
+    try {
+      localStorage.setItem("aloud:pro", v ? "1" : "0")
+    } catch {}
+  }, [])
 
   // ---- OCR ----
   const runOCR = useCallback(async () => {
@@ -764,5 +849,10 @@ export function useAloud() {
     loadMyElevenVoices,
     showToast,
     goHome,
+    library,
+    isPro,
+    openLibraryEntry,
+    removeLibraryEntry,
+    setIsPro,
   }
 }
