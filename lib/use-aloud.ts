@@ -48,7 +48,7 @@ export function useAloud() {
   const [playing, setPlaying] = useState(false)
   const [paused, setPaused] = useState(false)
   const [engine, setEngine] = useState<Engine>("device")
-  const [rate, setRate] = useState(1)
+  const [rate, setRate] = useState(0.9)
   const [docName, setDocName] = useState("document")
   const [totalWords, setTotalWords] = useState(0)
   const [status, setStatus] = useState("Ready")
@@ -69,11 +69,11 @@ export function useAloud() {
   const pdfRef = useRef<PDFDocumentProxy | null>(null)
   const chunksRef = useRef<Chunk[]>([])
   const idxRef = useRef(0)
-  const rateRef = useRef(1)
+  const rateRef = useRef(0.9)
   const engineRef = useRef<Engine>("device")
   const cfgRef = useRef<CloudConfig>(DEFAULT_CFG)
   const deviceVoicesRef = useRef<SpeechSynthesisVoice[]>([])
-  const selectedVoiceRef = useRef<string>("")
+  const selectedVoiceRef = useRef<string>(""); const docNameRef = useRef<string>("document")
   const audioCacheRef = useRef<Record<string, Blob>>({})
   const inflightRef = useRef<Record<string, Promise<Blob>>>({})
   const ocrRunningRef = useRef(false)
@@ -133,6 +133,8 @@ export function useAloud() {
       setSelectedDeviceVoice((cur) => {
         if (cur && sorted.some((v) => v.name === cur)) return cur
         const def =
+          sorted.find((v) => v.name.toLowerCase().includes("google") && v.lang.startsWith("en")) ||
+          sorted.find((v) => v.name.toLowerCase().includes("google")) ||
           sorted.find((v) => v.default && v.lang.startsWith("en")) ||
           sorted.find((v) => v.lang.startsWith("en")) ||
           sorted[0]
@@ -234,6 +236,9 @@ export function useAloud() {
       }
       idxRef.current = i
       setIdx(i)
+      try {
+        localStorage.setItem(`aloud:pos:${docNameRef.current}`, String(i))
+      } catch {}
       const mySession = sessionRef.current
       const audio = audioRef.current
 
@@ -296,6 +301,11 @@ export function useAloud() {
     setPaused(false)
   }, [cancelAudio])
 
+  const goHome = useCallback(() => {
+    stopReadingInternal()
+    setHasDoc(false)
+  }, [stopReadingInternal])
+
   const play = useCallback(() => {
     if (!chunksRef.current.length) return
     const e = engineRef.current
@@ -349,6 +359,9 @@ export function useAloud() {
       cancelAudio()
       idxRef.current = i
       setIdx(i)
+      try {
+        localStorage.setItem(`aloud:pos:${docNameRef.current}`, String(i))
+      } catch {}
       if (thenPlay) {
         play()
       } else {
@@ -436,6 +449,16 @@ export function useAloud() {
           setStatus("This looks scanned — try OCR")
         } else {
           const cks = applyText(clean, base)
+          try {
+            const saved = localStorage.getItem(`aloud:pos:${base}`)
+            if (saved) {
+              const savedIdx = parseInt(saved, 10)
+              if (!isNaN(savedIdx) && savedIdx > 0 && savedIdx < cks.length) {
+                idxRef.current = savedIdx
+                setIdx(savedIdx)
+              }
+            }
+          } catch {}
           const words = countWords(clean)
           setOcrBannerVisible(words < pdf.numPages * 12)
           setStatus(cks.length ? "Ready — press play" : "Ready")
@@ -740,5 +763,6 @@ export function useAloud() {
     setElModel,
     loadMyElevenVoices,
     showToast,
+    goHome,
   }
 }
