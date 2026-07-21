@@ -10,6 +10,8 @@ export function ReaderView({
   totalWords,
   ocrBannerVisible,
   reduceMotion,
+  fontScale,
+  dyslexiaFont,
   onSentenceClick,
   onRunOCR,
 }: {
@@ -19,6 +21,8 @@ export function ReaderView({
   totalWords: number
   ocrBannerVisible: boolean
   reduceMotion: boolean
+  fontScale: number
+  dyslexiaFont: boolean
   onSentenceClick: (i: number) => void
   onRunOCR: () => void
 }) {
@@ -46,7 +50,10 @@ export function ReaderView({
             </button>
           </div>
         )}
-        <article className="page">
+        <article
+          className={`page${dyslexiaFont ? " dyslexia" : ""}`}
+          style={{ fontSize: `${20 * fontScale}px` }}
+        >
           <div className="doc-title">
             <span>{docName}</span>
             <span>{totalWords ? `${totalWords.toLocaleString()} words` : ""}</span>
