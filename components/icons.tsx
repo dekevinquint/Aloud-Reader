@@ -68,3 +68,20 @@ export function CloseIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function BookIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" {...props}>
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5.5A1.5 1.5 0 0 1 4 19.5v-15Z" />
+      <path d="M13 4a1 1 0 0 1 1-1h5.5A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5H14a1 1 0 0 1-1-1V4Z" opacity="0.55" />
+    </svg>
+  )
+}
+
+export function LockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" {...props}>
+      <path d="M7 10V7.5a5 5 0 0 1 10 0V10h.5A1.5 1.5 0 0 1 19 11.5v8A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5v-8A1.5 1.5 0 0 1 6.5 10H7Zm2 0h6V7.5a3 3 0 0 0-6 0V10Zm3 4.5a1.25 1.25 0 0 0-.75 2.25v1.4a.75.75 0 0 0 1.5 0v-1.4A1.25 1.25 0 0 0 12 14.5Z" />
+    </svg>
+  )
+}
