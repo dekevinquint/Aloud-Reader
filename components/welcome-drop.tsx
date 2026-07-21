@@ -5,10 +5,10 @@ import { DownloadIcon } from "./icons"
 
 export function WelcomeDrop({
   onPick,
-  onFile,
+  onFiles,
 }: {
   onPick: () => void
-  onFile: (file: File) => void
+  onFiles: (files: File[]) => void
 }) {
   const [hot, setHot] = useState(false)
 
@@ -29,8 +29,8 @@ export function WelcomeDrop({
         onDrop={(e) => {
           e.preventDefault()
           setHot(false)
-          const f = e.dataTransfer.files[0]
-          if (f && f.type === "application/pdf") onFile(f)
+          const files = Array.from(e.dataTransfer.files).filter((f) => f.type === "application/pdf")
+          if (files.length) onFiles(files)
         }}
       >
         <div className="big">Drop a PDF here and listen to it</div>
