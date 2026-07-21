@@ -51,6 +51,8 @@ export type LibraryEntry = {
   updatedAt: number
 }
 
+export const FREE_LIBRARY_LIMIT = 3
+
 export function useAloud() {
   // ---- reactive state ----
   const [chunks, setChunks] = useState<Chunk[]>([])
@@ -74,6 +76,8 @@ export function useAloud() {
   const [elVoices, setElVoices] = useState<ElevenVoice[]>(DEFAULT_EL_VOICES)
   const [library, setLibrary] = useState<LibraryEntry[]>([])
   const [isPro, setIsProState] = useState(false)
+  const [fontScale, setFontScaleState] = useState(1)
+  const [dyslexiaFont, setDyslexiaFontState] = useState(false)
 
   // ---- mutable refs (avoid stale closures across async playback) ----
   const sessionRef = useRef(0)
@@ -86,6 +90,7 @@ export function useAloud() {
   const cfgRef = useRef<CloudConfig>(DEFAULT_CFG)
   const deviceVoicesRef = useRef<SpeechSynthesisVoice[]>([])
   const selectedVoiceRef = useRef<string>(""); const docNameRef = useRef<string>("document")
+  const isProRef = useRef(false)
   const audioCacheRef = useRef<Record<string, Blob>>({})
   const inflightRef = useRef<Record<string, Promise<Blob>>>({})
   const ocrRunningRef = useRef(false)
@@ -476,6 +481,7 @@ export function useAloud() {
             const now = Date.now()
             setLibrary((prev) => {
               const existing = prev.find((e) => e.id === base)
+              if (!existing && !isProRef.current && prev.length >= FREE_LIBRARY_LIMIT) return prev
               const entry: LibraryEntry = {
                 id: base,
                 name: base,
@@ -512,7 +518,41 @@ export function useAloud() {
       if (raw) setLibrary(JSON.parse(raw))
     } catch {}
     try {
-      setIsProState(localStorage.getItem("aloud:pro") === "1")
+      const pro = localStorage.getItem("aloud:pro") === "1"
+      setIsProState(pro)
+      isProRef.current = pro
+    } catch {}
+    try {
+      const fs = Number.parseFloat(localStorage.getItem("aloud:fontScale") || "1")
+      if (!Number.isNaN(fs)) setFontScaleState(fs)
+    } catch {}
+    try {
+      setDyslexiaFontState(localStorage.getItem("aloud:dyslexiaFont") === "1")
+    } catch {}
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const paymentId = params.get("payment_id")
+      if (paymentId) {
+        ;(async () => {
+          try {
+            const res = await fetch(`/api/payment-status?id=${encodeURIComponent(paymentId)}`)
+            const data = await res.json()
+            if (data?.paid) {
+              isProRef.current = true
+              setIsProState(true)
+              try {
+                localStorage.setItem("aloud:pro", "1")
+              } catch {}
+              showToast("You're Pro! Premium features unlocked.")
+            } else {
+              showToast("Payment not completed yet.")
+            }
+          } catch {}
+          params.delete("payment_id")
+          const qs = params.toString()
+          window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""))
+        })()
+      }
     } catch {}
   }, [])
 
@@ -551,11 +591,83 @@ export function useAloud() {
   }, [])
 
   const setIsPro = useCallback((v: boolean) => {
+    isProRef.current = v
     setIsProState(v)
     try {
       localStorage.setItem("aloud:pro", v ? "1" : "0")
     } catch {}
   }, [])
+
+  const setFontScale = useCallback((v: number) => {
+    const clamped = Math.min(1.4, Math.max(0.85, v))
+    setFontScaleState(clamped)
+    try {
+      localStorage.setItem("aloud:fontScale", String(clamped))
+    } catch {}
+  }, [])
+
+  const setDyslexiaFont = useCallback((v: boolean) => {
+    setDyslexiaFontState(v)
+    try {
+      localStorage.setItem("aloud:dyslexiaFont", v ? "1" : "0")
+    } catch {}
+  }, [])
+
+  // ---- batch upload: read extra files straight into the library ----
+  const loadPDFs = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return
+      await loadPDF(files[0])
+      for (const f of files.slice(1)) {
+        try {
+          const buf = await f.arrayBuffer()
+          const pdf = await openPdf(buf)
+          const raw = await extractText(pdf, () => {})
+          const base = f.name.replace(/\.pdf$/i, "") || "document"
+          const clean = normalize(raw)
+          if (!clean.trim()) continue
+          const cks = chunkText(clean)
+          const now = Date.now()
+          setLibrary((prev) => {
+            const existing = prev.find((e) => e.id === base)
+            if (!existing && !isProRef.current && prev.length >= FREE_LIBRARY_LIMIT) return prev
+            const entry: LibraryEntry = {
+              id: base,
+              name: base,
+              text: clean,
+              totalChunks: cks.length,
+              wordCount: countWords(clean),
+              addedAt: existing ? existing.addedAt : now,
+              updatedAt: now,
+            }
+            const next = [entry, ...prev.filter((e) => e.id !== base)]
+            try {
+              localStorage.setItem("aloud:library", JSON.stringify(next))
+            } catch {}
+            return next
+          })
+        } catch {
+          /* skip files that fail to parse */
+        }
+      }
+    },
+    [loadPDF],
+  )
+
+  // ---- Mollie checkout (Pro upgrade) ----
+  const startCheckout = useCallback(async () => {
+    try {
+      const res = await fetch("/api/checkout", { method: "POST" })
+      const data = await res.json()
+      if (data?.url) {
+        window.location.href = data.url
+      } else {
+        showToast("Couldn't start checkout. Please try again.")
+      }
+    } catch {
+      showToast("Couldn't start checkout. Please try again.")
+    }
+  }, [showToast])
 
   // ---- OCR ----
   const runOCR = useCallback(async () => {
@@ -854,5 +966,11 @@ export function useAloud() {
     openLibraryEntry,
     removeLibraryEntry,
     setIsPro,
+    fontScale,
+    setFontScale,
+    dyslexiaFont,
+    setDyslexiaFont,
+    loadPDFs,
+    startCheckout,
   }
 }
