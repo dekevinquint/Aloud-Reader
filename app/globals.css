@@ -17,6 +17,16 @@
   --font-serif: var(--font-newsreader), Georgia, serif;
 }
 
+/* Light theme: flips the app chrome (background/text) while the reading
+   "paper" surface and gold accent stay the same in both themes. */
+[data-theme="light"] {
+    --ink: #f4f1ea;
+    --ink-2: #ffffff;
+    --ink-line: #ddd6c6;
+    --on-dark: #201d18;
+    --on-dark-soft: #6d675c;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
