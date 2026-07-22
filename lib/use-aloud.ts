@@ -78,6 +78,7 @@ export function useAloud() {
   const [isPro, setIsProState] = useState(false)
   const [fontScale, setFontScaleState] = useState(1)
   const [dyslexiaFont, setDyslexiaFontState] = useState(false)
+  const [membership, setMembership] = useState<{ customerId: string; subscriptionId: string } | null>(null)
 
   // ---- mutable refs (avoid stale closures across async playback) ----
   const sessionRef = useRef(0)
@@ -530,30 +531,69 @@ export function useAloud() {
       setDyslexiaFontState(localStorage.getItem("aloud:dyslexiaFont") === "1")
     } catch {}
     try {
-      const params = new URLSearchParams(window.location.search)
-      const paymentId = params.get("payment_id")
-      if (paymentId) {
-        ;(async () => {
-          try {
-            const res = await fetch(`/api/payment-status?id=${encodeURIComponent(paymentId)}`)
-            const data = await res.json()
-            if (data?.paid) {
-              isProRef.current = true
-              setIsProState(true)
-              try {
-                localStorage.setItem("aloud:pro", "1")
-              } catch {}
-              showToast("You're Pro! Premium features unlocked.")
-            } else {
-              showToast("Payment not completed yet.")
+            const params = new URLSearchParams(window.location.search)
+            const paymentId = params.get("payment_id")
+            const plan = params.get("plan") || "onetime"
+            const customerId = params.get("customer_id") || ""
+            if (paymentId) {
+                      ;(async () => {
+                                  try {
+                                                const qs = new URLSearchParams({ id: paymentId, plan })
+                                                if (customerId) qs.set("customerId", customerId)
+                                                const res = await fetch(`/api/payment-status?${qs.toString()}`)
+                                                const data = await res.json()
+                                                if (data?.paid) {
+                                                                isProRef.current = true
+                                                                setIsProState(true)
+                                                                try {
+                                                                                  localStorage.setItem("aloud:pro", "1")
+                                                                } catch {}
+                                                                if (data.plan === "membership" && data.subscriptionId && data.customerId) {
+                                                                                  const m = { customerId: data.customerId, subscriptionId: data.subscriptionId }
+                                                                                  setMembership(m)
+                                                                                  try {
+                                                                                                      localStorage.setItem("aloud:membership", JSON.stringify(m))
+                                                                                    } catch {}
+                                                                                  showToast("You're a member! Premium features unlocked.")
+                                                                } else {
+                                                                                  showToast("You're Pro! Premium features unlocked.")
+                                                                }
+                                                } else {
+                                                                showToast("Payment not completed yet.")
+                                                }
+                                  } catch {}
+                                  params.delete("payment_id")
+                                  params.delete("plan")
+                                  params.delete("customer_id")
+                                  const qs = params.toString()
+                                  window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""))
+                      })()
             }
-          } catch {}
-          params.delete("payment_id")
-          const qs = params.toString()
-          window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""))
-        })()
-      }
     } catch {}
+        try {
+                const rawMembership = localStorage.getItem("aloud:membership")
+                if (rawMembership) {
+                          const m = JSON.parse(rawMembership)
+                          setMembership(m)
+                          ;(async () => {
+                                      try {
+                                                    const res = await fetch(
+                                                                    `/api/subscription-status?customerId=${encodeURIComponent(m.customerId)}&subscriptionId=${encodeURIComponent(m.subscriptionId)}`,
+                                                                  )
+                                                    const data = await res.json()
+                                                    if (!data?.active) {
+                                                                    setMembership(null)
+                                                                    isProRef.current = false
+                                                                    setIsProState(false)
+                                                                    try {
+                                                                                      localStorage.removeItem("aloud:membership")
+                                                                                      localStorage.setItem("aloud:pro", "0")
+                                                                    } catch {}
+                                                    }
+                                      } catch {}
+                          })()
+                }
+        } catch {}
   }, [])
 
   const openLibraryEntry = useCallback(
@@ -655,19 +695,43 @@ export function useAloud() {
   )
 
   // ---- Mollie checkout (Pro upgrade) ----
-  const startCheckout = useCallback(async () => {
-    try {
-      const res = await fetch("/api/checkout", { method: "POST" })
-      const data = await res.json()
-      if (data?.url) {
-        window.location.href = data.url
-      } else {
-        showToast("Couldn't start checkout. Please try again.")
-      }
-    } catch {
-      showToast("Couldn't start checkout. Please try again.")
-    }
-  }, [showToast])
+const startCheckout = useCallback(
+      async (plan: "onetime" | "membership" = "onetime") => {
+              try {
+                        const res = await fetch("/api/checkout", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ plan }),
+                        })
+                        const data = await res.json()
+                        if (data?.url) {
+                                    window.location.href = data.url
+                        } else {
+                                    showToast("Couldn't start checkout. Please try again.")
+                        }
+              } catch {
+                        showToast("Couldn't start checkout. Please try again.")
+              }
+      },
+      [showToast],
+    )
+
+    const cancelMembership = useCallback(async () => {
+          if (!membership) return
+          try {
+                  await fetch("/api/cancel-subscription", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(membership),
+                  })
+          } catch {}
+          setMembership(null)
+          try {
+                  localStorage.removeItem("aloud:membership")
+          } catch {}
+          setIsPro(false)
+          showToast("Membership cancelled.")
+    }, [membership, showToast, setIsPro])
 
   // ---- OCR ----
   const runOCR = useCallback(async () => {
@@ -972,5 +1036,7 @@ export function useAloud() {
     setDyslexiaFont,
     loadPDFs,
     startCheckout,
+    membership,
+        cancelMembership,
   }
 }
