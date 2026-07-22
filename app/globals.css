@@ -949,3 +949,79 @@ input[type="range"]::-moz-range-thumb {
   color: #fff;
   background: rgba(255, 255, 255, 0.06);
 }
+
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+}
+
+.scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: grid;
+    place-items: center;
+    z-index: 60;
+    padding: 20px;
+}
+
+.upgrade-card {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    background: var(--ink-2);
+    border: 1px solid var(--ink-line);
+    border-radius: var(--radius);
+    padding: 28px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.upgrade-card h2 {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    color: var(--on-dark);
+}
+
+.upgrade-sub {
+    font-size: 13px;
+    color: var(--on-dark-soft);
+    margin-bottom: 8px;
+}
+
+.upgrade-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--ink-line);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--on-dark);
+    cursor: pointer;
+    text-align: left;
+}
+
+.upgrade-option:hover {
+    border-color: var(--gold);
+    background: var(--gold-wash);
+}
+
+.upgrade-price {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    color: var(--gold);
+    flex: 0 0 auto;
+}
+
+.upgrade-label {
+    font-size: 13px;
+    color: var(--on-dark-soft);
+}
