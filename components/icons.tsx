@@ -85,3 +85,20 @@ export function LockIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function SunIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+          <svg viewBox="0 0 24 24" {...props}>
+                  <circle cx="12" cy="12" r="4.2" />
+                  <path d="M12 2.5v2.6M12 18.9v2.6M4.2 4.2l1.85 1.85M17.95 17.95l1.85 1.85M2.5 12h2.6M18.9 12h2.6M4.2 19.8l1.85-1.85M17.95 6.05l1.85-1.85" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+          </svg>
+          )
+}
+
+export function MoonIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+          <svg viewBox="0 0 24 24" {...props}>
+                <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" />
+          </svg>
+          )
+}
