@@ -2,19 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAloud } from "@/lib/use-aloud"
-import { BookIcon, GearIcon, PlusIcon } from "./icons"
+import { BookIcon, GearIcon, PlusIcon, SunIcon, MoonIcon } from "./icons"
 import { WelcomeDrop } from "./welcome-drop"
 import { ReaderView } from "./reader-view"
 import { TransportDock } from "./transport-dock"
 import { SettingsPanel } from "./settings-panel"
 import { LoadingOverlay } from "./loading-overlay"
 import { LibraryPanel } from "./library-panel"
+import { UpgradeModal } from "./upgrade-modal"
 
 export function AloudReader() {
   const a = useAloud()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const pickFile = useCallback(() => fileInputRef.current?.click(), [])
 
@@ -67,6 +69,13 @@ export function AloudReader() {
           <p>Your PDFs, read out loud</p>
         </div>
         <div className="top-actions">
+                    <button
+                                  className="ghost-btn icon-btn"
+                                  onClick={a.toggleTheme}
+                                  aria-label={a.theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                                >
+                      {a.theme === "dark" ? <SunIcon /> : <MoonIcon />}
+                              </button>
           <button className="ghost-btn" onClick={() => setLibraryOpen(true)}>
             <BookIcon />
             Library
@@ -130,7 +139,7 @@ export function AloudReader() {
           isPro={a.isPro}
           fontScale={a.fontScale}
           dyslexiaFont={a.dyslexiaFont}
-          onUpgrade={a.startCheckout}
+        onUpgrade={() => setUpgradeOpen(true)}
           onFontScale={a.setFontScale}
           onDyslexiaFont={a.setDyslexiaFont}
         />
@@ -146,8 +155,16 @@ export function AloudReader() {
             setLibraryOpen(false)
           }}
           onRemove={a.removeLibraryEntry}
-          onUpgrade={a.startCheckout}
+        onUpgrade={() => setUpgradeOpen(true)}
         />
+                <UpgradeModal
+                            open={upgradeOpen}
+                            onClose={() => setUpgradeOpen(false)}
+                            onPick={(plan) => {
+                                          setUpgradeOpen(false)
+                                          a.startCheckout(plan)
+                            }}
+                          />
 {a.hasDoc && (
           <TransportDock
             playing={a.playing}
