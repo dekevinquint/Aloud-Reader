@@ -234,8 +234,6 @@ export function SettingsPanel({
 
           <div className="grp">
             <div className="grp-title">Focus mode</div>
-            {isPro ? (
-              <>
                 <div className="seg focus-seg">
                   <button onClick={() => onFontScale(fontScale - 0.1)}>A-</button>
                   <button onClick={() => onFontScale(1)}>Reset</button>
@@ -245,13 +243,6 @@ export function SettingsPanel({
                   <input type="checkbox" checked={dyslexiaFont} onChange={(e) => onDyslexiaFont(e.target.checked)} />
                   Dyslexia-friendly font
                 </label>
-              </>
-            ) : (
-              <button className="mini-btn locked" onClick={onUpgrade}>
-                <LockIcon width={13} height={13} style={{ fill: "currentColor" }} />
-                Text size and dyslexia-friendly font — Pro
-              </button>
-            )}
           </div>
         </div>
       </aside>
