@@ -79,6 +79,7 @@ export function useAloud() {
   const [fontScale, setFontScaleState] = useState(1)
   const [dyslexiaFont, setDyslexiaFontState] = useState(false)
   const [membership, setMembership] = useState<{ customerId: string; subscriptionId: string } | null>(null)
+  const [theme, setThemeState] = useState<"dark" | "light">("dark")
 
   // ---- mutable refs (avoid stale closures across async playback) ----
   const sessionRef = useRef(0)
@@ -515,6 +516,10 @@ export function useAloud() {
   // ---- library (paid feature) ----
   useEffect(() => {
     try {
+            const savedTheme = localStorage.getItem("aloud:theme")
+            setThemeState(savedTheme === "light" ? "light" : "dark")
+    } catch {}
+    try {
       const raw = localStorage.getItem("aloud:library")
       if (raw) setLibrary(JSON.parse(raw))
     } catch {}
@@ -652,6 +657,22 @@ export function useAloud() {
       localStorage.setItem("aloud:dyslexiaFont", v ? "1" : "0")
     } catch {}
   }, [])
+
+      const setTheme = useCallback((v: "dark" | "light") => {
+              setThemeState(v)
+              try {
+                        localStorage.setItem("aloud:theme", v)
+              } catch {}
+      }, [])
+
+      const toggleTheme = useCallback(() => {
+              setTheme(theme === "dark" ? "light" : "dark")
+      }, [theme, setTheme])
+
+      // Reflect the chosen theme on the root element for CSS to key off.
+      useEffect(() => {
+              document.documentElement.setAttribute("data-theme", theme)
+      }, [theme])
 
   // ---- batch upload: read extra files straight into the library ----
   const loadPDFs = useCallback(
@@ -1038,5 +1059,7 @@ const startCheckout = useCallback(
     startCheckout,
     membership,
         cancelMembership,
+    theme,
+        toggleTheme,
   }
 }
