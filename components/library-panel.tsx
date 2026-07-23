@@ -11,6 +11,8 @@ export function LibraryPanel({
   onOpen,
   onRemove,
   onUpgrade,
+    membership,
+    onCancelMembership,
 }: {
   open: boolean
   isPro: boolean
@@ -19,6 +21,8 @@ export function LibraryPanel({
   onOpen: (id: string) => void
   onRemove: (id: string) => void
   onUpgrade: () => void
+    membership: { customerId: string; subscriptionId: string } | null
+    onCancelMembership: () => void
 }) {
   return (
     <>
@@ -30,6 +34,14 @@ export function LibraryPanel({
             <CloseIcon width={20} height={20} style={{ fill: "currentColor" }} />
           </button>
         </div>
+        {isPro && membership?.subscriptionId && (
+                <div className="lib-membership">
+                            <span>Pro membership active</span>
+                            <button className="link-btn" onClick={onCancelMembership}>
+                                          Cancel membership
+                            </button>
+                </div>
+              )}
         <div className="panel-body">
           {!isPro ? (
             <div className="lib-locked">
@@ -42,9 +54,6 @@ export function LibraryPanel({
               <button className="btn-upgrade" onClick={onUpgrade}>
                 Upgrade to Pro
               </button>
-              <p className="lib-note">
-                Demo build: no payment is wired up yet. This screen is a placeholder for a real checkout flow.
-              </p>
             </div>
           ) : library.length === 0 ? (
             <div className="lib-empty">
