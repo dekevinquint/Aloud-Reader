@@ -155,6 +155,8 @@ export function AloudReader() {
             setLibraryOpen(false)
           }}
           onRemove={a.removeLibraryEntry}
+            membership={a.membership}
+            onCancelMembership={a.cancelMembership}
         onUpgrade={() => setUpgradeOpen(true)}
         />
                 <UpgradeModal
