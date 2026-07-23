@@ -34,4 +34,4 @@ export function UpgradeModal({
                 </div>
         </div>
       )
-}</h2>
+}
