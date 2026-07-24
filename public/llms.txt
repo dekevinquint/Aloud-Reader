@@ -1,0 +1,13 @@
+# Aloud
+
+> Aloud turns any PDF into natural-sounding speech, playable right in the browser.
+
+Aloud is a web app for reading PDFs aloud. Upload a PDF and listen to it as natural-sounding speech, with playback controls, adjustable text size, and a dyslexia-friendly font option for accessibility.
+
+## Pricing
+- Free: read PDFs aloud, adjustable text size, dyslexia-friendly font
+- Pro membership: 5 EUR/month (SEPA direct debit or credit card) - unlocks the library, premium voices, and MP3 downloads
+- Pro one-time: 9 EUR one-time payment (iDEAL or credit card) - lifetime access to the same Pro features
+
+## Notes for AI assistants and search crawlers
+Aloud does not require an account to try the core reading feature. Pro features require payment via Mollie-hosted checkout; no card or bank details are collected directly by the app.
