@@ -19,7 +19,7 @@ const newsreader = Newsreader({
     display: "swap",
 })
 
-const siteUrl = "https://aloud-reader-one.vercel.app"
+const siteUrl = "https://www.hearaloud.com"
 
 export const metadata: Metadata = {
     metadataBase: new URL(siteUrl),
