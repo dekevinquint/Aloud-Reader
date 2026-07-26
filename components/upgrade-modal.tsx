@@ -16,7 +16,7 @@ export function UpgradeModal({
     if (!open) return null
 
   return (
-        <div className="scrim open" onClick={onClose}>
+        <div className="upgrade-scrim" onClick={onClose}>
                 <div className="upgrade-card" onClick={(e) => e.stopPropagation()}>
                           <button className="panel-close" aria-label="Close" onClick={onClose}>
                                       <CloseIcon width={18} height={18} style={{ fill: "currentColor" }} />
